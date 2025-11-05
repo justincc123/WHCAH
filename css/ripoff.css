@@ -15,16 +15,18 @@ body{
 table {
     border-collapse: collapse;
     margin: 20px auto;
-    width: 80vw;
-    height: 80vh;
+    width: 90%;
+    height: 90%;
 }
 td {
-    width: 40px;
-    height: 40px;
     border: 1px solid #888;
     text-align: center;
     vertical-align: middle;
-    transition: background 0.3s, transform 0.3s;
+    transition: background 1s, transform 1s;
+    cursor: grab;
+}
+td.moving{
+    z-index: 2
 }
 .filled {
     background: cornflowerblue;
