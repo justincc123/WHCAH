@@ -10,7 +10,7 @@ body {
 #playSpace {
     width: min(80vh, 90vw);
     aspect-ratio: 1/1;
-    background-color: aqua;
+    background-color: slateblue;
     border-radius: 10px;
     display: flex;
     justify-content: center;
@@ -31,7 +31,8 @@ body {
     margin: 0;
 }
 
-#grid tr, #grid td {
+#grid tr,
+#grid td {
     padding: 0;
     margin: 0;
     border: 1px solid #888;
@@ -51,60 +52,81 @@ td.moving {
     z-index: 2
 }
 
-.filled {
-    background: cornflowerblue;
-    color: white;
+
+.score-popup {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 2em;
+    color: gold;
+    font-weight: bold;
+    text-shadow: 0 0 10px orange, 0 0 20px yellow;
+    animation: fadeUp 1s ease-out forwards;
 }
 
 .gemA {
     background-color: blue;
-    
+
 }
 
 .gemB {
     background-color: red;
-    
+
 }
 
 .gemC {
     background-color: yellow;
-    
+
 }
 
 .gemD {
     background-color: green;
-    
+
 }
 
 .gemE {
     background-color: orange;
-    
+
 }
 
 .gemF {
     background-color: purple;
-    
+
 }
 
 .gemG {
     background-color: white;
-    
+
 }
 
 .gemH {
     background-color: cyan;
-    
+
 }
 
 .gemI {
     background-color: grey;
-    
+
 }
 
 .gemJ {
     background-color: pink;
-    
+
 }
-.empty{
+
+.empty {
     background-color: burlywood;
+}
+
+@keyframes fadeUp {
+    from {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translate(-50%, -60px);
+    }
 }

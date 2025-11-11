@@ -3,6 +3,8 @@ const cols = 6;
 const grid = document.getElementById('grid');
 const cellsize = 100;
 var totalScore = 0;
+var totalCombo = 0;
+let playerLock = false;
 
 const e = document.getElementsByClassName('close');
 const closeA = e[0];
@@ -14,6 +16,31 @@ const n = document.getElementsByClassName('next');
 const nextA = n[0];
 const nextB = n[1];
 const nextC = n[2];
+
+function Update() {
+    document.getElementById('displayScore').textContent = totalScore;
+    document.getElementById('displayMult').textContent = totalCombo;
+}
+
+function showScorePopup(score, mult) {
+    if (mult > 1 && score > 0) {
+        const popup = document.createElement('div');
+        popup.textContent = `Combo! ${score} × ${mult}!`;
+        console.log(`Combo! ${score} × ${mult}!`);
+        popup.className = 'score-popup';
+        document.body.appendChild(popup);
+    } else if (mult <=1 && score > 0) {
+        const popup = document.createElement('div');
+        popup.textContent = `+ ${score}!`;
+        console.log(`+ ${score}!`);
+        popup.className = 'score-popup';
+        document.body.appendChild(popup);
+    }
+
+
+    setTimeout(() => popup.remove(), 1000);
+}
+
 
 function shiftRow(r, dir, count = 1) {
     for (let i = 0; i < count; i++) {
@@ -43,9 +70,14 @@ function shiftCol(c, dir, count = 1) {
     }
 }
 
-function matchCheck() {
+async function matchCheck() {
+    if(playerLock){
+        return;
+    }
+    playerLock = true;
     let matched;
-    let combo = 0;
+    let combo = totalCombo;
+    let score = 0;
     do {
         matched = false;
         const toClear = [];
@@ -66,7 +98,7 @@ function matchCheck() {
             }
 
             checked[r][c] = true;
-            group.push([r][c]);
+            group.push([r, c]);
 
             flood(r + 1, c, gemType, group);
             flood(r - 1, c, gemType, group);
@@ -83,7 +115,7 @@ function matchCheck() {
                     continue;
                 }
                 const gemType = cells[r][c].className;
-                if (gemType === empty) {
+                if (gemType === 'empty') {
                     continue;
                 }
 
@@ -94,21 +126,58 @@ function matchCheck() {
                     //score increases based on number of matched gems
                     matched = true;
                     group.forEach(([gr, gc]) =>
-                        toClear.add(`${gr},${gc}`));
+                        toClear.push([gr, gc]));
 
-                    const baseScore = group.length * 200;
+                    const baseScore = group.length * 500;
                     const countBonus = group.length >= 4 ? (group.length - 2) * 5 : 0;
                     moveScore += baseScore + countBonus;
                 }
             }
         }
-        // Clear matched cells
-        toClear.forEach(([r, c]) => {
-            cells[r][c].className = 'empty';
-        });
+        // Clear matched cells (if any)
+        if (matched) {
+            combo++;
+            const mult = 1 + (combo - 1) * .5;
 
-        if (matched) Grav(); // Apply gravity after clearing
+            toClear.forEach(([r, c]) => {
+                cells[r][c].style.opacity = '.3';
+            });
+
+            await new Promise(resolve =>
+                setTimeout(resolve, 400)
+            );
+
+            toClear.forEach(([r, c]) => {
+                cells[r][c].className = 'empty';
+                cells[r][c].style.opacity = '1'
+            });
+
+            var finalpoints = Math.floor(moveScore * mult);
+            totalScore += finalpoints;
+            score = moveScore;
+
+            console.log(`${combo}: +${finalpoints} points`);
+            console.log(`Total: ${totalScore}`);
+
+            Grav(); // Apply gravity after clearing
+            await new Promise(resolve =>
+                setTimeout(resolve, 400)
+            );
+        }
     } while (matched);
+
+    if(combo === totalCombo){
+        totalCombo = 0;
+    }else{
+        totalCombo = combo > 1 ? combo : 0;
+    }
+    
+    if (combo > 1) {
+        console.log(`Combo! ×${totalCombo}`);
+    }
+    showScorePopup(score, totalCombo);
+    Update();
+    playerLock = false;
 }
 
 // Gravity function
@@ -158,18 +227,22 @@ nextC.addEventListener("click", function () {
 
 closeA.addEventListener("click", function () {
     RulesA.close();
+    matchCheck();
     // Start the game timer in these spots
 });
 closeB.addEventListener("click", function () {
     RulesB.close();
+    matchCheck();
     // Start the game timer in these spots
 });
 closeC.addEventListener("click", function () {
     RulesC.close();
+    matchCheck();
     // Start the game timer in these spots
 });
 closeD.addEventListener("click", function () {
     RulesD.close();
+    matchCheck();
     // Start the game timer in these spots
 });
 
@@ -232,15 +305,21 @@ let startY = 0;
 let dragging = false;
 let direction = null;
 
-grid.addEventListener('auxclick', e => {
+grid.addEventListener('dblclick', async e => {
+    if(playerLock){
+        return;
+    }
     if (e.target.tagName !== 'TD') return;
     e.preventDefault();
     e.target.className = 'empty';
     Grav();
-    matchCheck();
+    await matchCheck();
 });
 
 grid.addEventListener('mousedown', e => {
+    if(playerLock){
+        return;
+    }
     if (e.target.tagName !== 'TD') return;
     startCell = e.target;
     startX = e.clientX;
@@ -250,6 +329,9 @@ grid.addEventListener('mousedown', e => {
 });
 
 grid.addEventListener('mousemove', e => {
+    if(playerLock){
+        return;
+    }
     if (!dragging || !startCell) return;
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
@@ -279,10 +361,13 @@ grid.addEventListener('mousemove', e => {
     }
 });
 
-grid.addEventListener('mouseup', e => {
+grid.addEventListener('mouseup', async e => {
+    if(playerLock){
+        return;
+    }
     dragging = false;
     startCell = null;
     direction = null;
     Grav();
-    matchCheck();
+    await matchCheck();
 });
