@@ -1,6 +1,9 @@
+const cells = [];
+const board = [];
+const grid = document.getElementById('grid');
+
 const rows = 6;
 const cols = 6;
-const grid = document.getElementById('grid');
 const cellsize = 100;
 var totalScore = 0;
 var totalCombo = 0;
@@ -23,50 +26,89 @@ function Update() {
 }
 
 function showScorePopup(score, mult) {
+    let popup = document.createElement('div');
     if (mult > 1 && score > 0) {
-        const popup = document.createElement('div');
         popup.textContent = `Combo! ${score} × ${mult}!`;
         console.log(`Combo! ${score} × ${mult}!`);
         popup.className = 'score-popup';
-        document.body.appendChild(popup);
     } else if (mult <=1 && score > 0) {
-        const popup = document.createElement('div');
         popup.textContent = `+ ${score}!`;
         console.log(`+ ${score}!`);
         popup.className = 'score-popup';
-        document.body.appendChild(popup);
     }
 
-
+    document.body.appendChild(popup);
     setTimeout(() => popup.remove(), 1000);
 }
 
+function move(r, c, newR, newC){
+    const e = cells[r][c];
+    const g = board[r][c]
+    e.dataset.r = newR;
+    e.dataset.c = newC;
+    e.style.transform = `translate(${newC * cellsize}px, ${newR * cellsize}px)`;
 
-function shiftRow(r, dir, count = 1) {
-    for (let i = 0; i < count; i++) {
+    cells[newR][newC] = e;
+    cells[r][c] = null;
+
+    board[newR][newC] = g;
+    board[r][c] = 'empty';
+}
+
+
+function shiftRow(r, dir) {
         if (dir > 0) {
-            const lastGem = cells[r][cols - 1].className;
-            for (let j = cols - 1; j > 0; j--) cells[r][j].className = cells[r][j - 1].className;
-            cells[r][0].className = lastGem;
+            const lastGem = board[r][cols - 1];
+            const lastCell = cells[r][cols - 1];
+
+            for (let j = cols - 1; j > 0; j--) {
+                cells[r][j] = cells[r][j - 1];
+                board[r][j] = board[r][j - 1];
+            }
+            cells[r][0] = lastCell;
+            board[r][0] = lastGem;
         } else {
-            const firstGem = cells[r][0].className;
-            for (let j = 0; j < cols - 1; j++) cells[r][j].className = cells[r][j + 1].className;
-            cells[r][cols - 1].className = firstGem;
+            const firstGem = board[r][0];
+            const firstCell = cells[r][0];
+
+            for (let j = 0; j < cols - 1; j++){
+                board[r][j] = board[r][j + 1];
+                cells[r][j] = cells[r][j + 1];
+            }
+            cells[r][cols - 1] = firstCell;
+            board[r][cols - 1] = firstGem;
         }
+    for(let c = 0; c < cols; c++){
+        const e = cells[r][c];
+        e.dataset.c = c;
+        e.style.transform = `translate(${c * cellsize}px, ${r * cellsize}px)`;
     }
 }
 
-function shiftCol(c, dir, count = 1) {
-    for (let i = 0; i < count; i++) {
+function shiftCol(c, dir) {
         if (dir > 0) {
-            const lastGem = cells[rows - 1][c].className;
-            for (let j = rows - 1; j > 0; j--) cells[j][c].className = cells[j - 1][c].className;
-            cells[0][c].className = lastGem;
+            const lastGem = board[rows - 1][c];
+            const lastCell = cells[rows - 1][c];
+            for (let j = rows - 1; j > 0; j--){
+                cells[j][c] = cells[j - 1][c];
+                board[j][c] = board[j - 1][c];
+            }
+            board[0][c] = lastGem;
+            cells[0][c] = lastCell;
         } else {
-            const firstGem = cells[0][c].className;
-            for (let j = 0; j < rows - 1; j++) cells[j][c].className = cells[j + 1][c].className;
-            cells[rows - 1][c].className = firstGem;
+            const firstGem = board[0][c];
+            const firstCell = cells[0][c];
+            for (let j = 0; j < rows - 1; j++){
+                cells[j][c] = cells[j + 1][c];
+                board[j][c] = board[j + 1][c];
+            }
+            board[rows - 1][c] = firstGem;
+            cells[rows - 1][c] = firstCell;
         }
+    for(let r = 0; r < rows; r++){
+        const e = cells[r][c];
+        e.dataset.r = r;
+        e.style.transform = `translate(${c * cellsize}px, ${r * cellsize}px)`;
     }
 }
 
@@ -93,7 +135,7 @@ async function matchCheck() {
             if (checked[r][c]) {
                 return;
             }
-            if (cells[r][c].className != gemType) {
+            if (board[r][c] != gemType) {
                 return;
             }
 
@@ -114,7 +156,7 @@ async function matchCheck() {
                 if (checked[r][c]) {
                     continue;
                 }
-                const gemType = cells[r][c].className;
+                const gemType = board[r][c];
                 if (gemType === 'empty') {
                     continue;
                 }
@@ -148,9 +190,13 @@ async function matchCheck() {
             );
 
             toClear.forEach(([r, c]) => {
-                cells[r][c].className = 'empty';
-                cells[r][c].style.opacity = '1'
+                board[r][c] = 'empty';
+                const e = cells[r][c];
+                e.className = "cell empty";
+                e.style.opacity = '0';
             });
+
+            await stabilize();
 
             var finalpoints = Math.floor(moveScore * mult);
             totalScore += finalpoints;
@@ -159,7 +205,7 @@ async function matchCheck() {
             console.log(`${combo}: +${finalpoints} points`);
             console.log(`Total: ${totalScore}`);
 
-            Grav(); // Apply gravity after clearing
+             // Apply gravity after clearing
             await new Promise(resolve =>
                 setTimeout(resolve, 400)
             );
@@ -182,35 +228,54 @@ async function matchCheck() {
 
 // Gravity function
 function Grav() {
+    let moved = false;
     for (let c = 0; c < cols; c++) {
         for (let r = rows - 1; r >= 0; r--) {
-            if (cells[r][c].className === 'empty') {
+            if (board[r][c] === 'empty') {
                 // find the closest non-empty cell above
                 let k = r - 1;
-                while (k >= 0 && cells[k][c].className === 'empty') k--;
+                while (k >= 0 && board[k][c] === 'empty') k--;
                 if (k >= 0) {
-                    cells[r][c].className = cells[k][c].className;
-                    cells[k][c].className = 'empty';
+                    move(k, c, r, c);
+                    moved = true;
                 }
             }
         }
     }
-    fillTop();
+    return moved;
 }
 
 function fillTop() {
+    const gems = ['gemA', 'gemB', 'gemC', 'gemD', 'gemE', 'gemF', 'gemG', 'gemH', 'gemI', 'gemJ'];
     for (let c = 0; c < cols; c++) {
         for (let r = 0; r < rows; r++) {
-            if (cells[r][c].className === 'empty') {
-                const rand = Math.ceil(Math.random() * 10);
-                const gem = ['gemA', 'gemB', 'gemC', 'gemD', 'gemE', 'gemF', 'gemG', 'gemH', 'gemI', 'gemJ'][rand - 1];
-                cells[r][c].className = gem;
+            if (board[r][c] === 'empty' && (r === 0 || board[r-1][c] !== 'empty')) {
+                const gem = gems[Math.floor(Math.random() * gems.length)];
+                board[r][c] = gem;
+                const e = cells[r][c];
+                e.className = "cell " + gem;
+                e.style.opacity = '0';
+                requestAnimationFrame(() => {
+                    e.style.transition = 'opacity 0.3s';
+                    e.style.opacity = '1';
+                });
+                filled = true;
             }
         }
     }
+    return filled;
 }
 
-RulesA.showModal(e);
+async function stablize(){
+    let moved;
+    do{
+        moved = Grav();
+        fillTop();
+        await new Promise(resolve => setTimeout(resolve, 300));
+    } while (moved);
+}
+
+RulesA.showModal();
 
 nextA.addEventListener("click", function () {
     RulesA.close();
@@ -227,76 +292,93 @@ nextC.addEventListener("click", function () {
 
 closeA.addEventListener("click", function () {
     RulesA.close();
-    matchCheck();
+    makeGrid();
     // Start the game timer in these spots
 });
 closeB.addEventListener("click", function () {
     RulesB.close();
-    matchCheck();
+    makeGrid();
     // Start the game timer in these spots
 });
 closeC.addEventListener("click", function () {
     RulesC.close();
-    matchCheck();
+    makeGrid();
     // Start the game timer in these spots
 });
 closeD.addEventListener("click", function () {
     RulesD.close();
-    matchCheck();
+    makeGrid();
     // Start the game timer in these spots
 });
 
 
 
-
-// Create the table
-const cells = [];
-
+function makeGrid(){
 for (let r = 0; r < rows; r++) {
-    const row = document.createElement('tr');
-    const rowCells = [];
+    cells[r] = [];
+    board[r] = [];
+
     for (let c = 0; c < cols; c++) {
-        const cell = document.createElement('td');
+        const cellC = document.createElement("div");
+        let gem = "gemA";
         // Randomly fill some cells at start
         switch (Math.ceil(Math.random() * 10)) {
             case 1:
-                cell.className = "gemA";
+                // A";
+                gem = "gemA";
                 break;
             case 2:
-                cell.className = "gemB";
+                // B";
+                gem = "gemB";
                 break;
             case 3:
-                cell.className = "gemC";
+                // C";
+                gem = "gemC";
                 break;
             case 4:
-                cell.className = "gemD";
+                // D";
+                gem = "gemD";
                 break;
             case 5:
-                cell.className = "gemE";
+                // E";
+                gem = "gemE";
                 break;
             case 6:
-                cell.className = "gemF";
+                // F";
+                gem = "gemF";
                 break;
             case 7:
-                cell.className = "gemG";
+                // G";
+                gem = "gemG";
                 break;
             case 8:
-                cell.className = "gemH";
+                // H";
+                gem = "gemH";
                 break;
             case 9:
-                cell.className = "gemI";
+                // I";
+                gem = "gemI";
                 break;
             case 10:
-                cell.className = "gemJ";
+                // J";
+                gem = "gemJ";
                 break;
         }
-        row.appendChild(cell);
-        rowCells.push(cell);
-    }
-    grid.appendChild(row);
-    cells.push(rowCells);
-}
 
+        cellC.className = 'cell ' + gem;
+        cellC.style.transform = `translate(${c * cellsize}px, ${r * cellsize}px)`;
+        cellC.dataset.r = r;
+        cellC.dataset.c = c;
+
+        grid.appendChild(cellC);
+        cells[r][c] = cellC;
+        board[r][c] = gem;
+    }
+}
+matchCheck();
+playerLock = false;
+
+}
 
 
 let startCell = null;
@@ -309,9 +391,12 @@ grid.addEventListener('dblclick', async e => {
     if(playerLock){
         return;
     }
-    if (e.target.tagName !== 'TD') return;
+    if (!e.target.classList.contains("cell")) return;
     e.preventDefault();
-    e.target.className = 'empty';
+    const r = parseInt(e.target.dataset.r);
+    const c = parseInt(e.target.dataset.c);
+    board[r][c] = 'empty';
+    e.target.className = 'cell empty'
     Grav();
     await matchCheck();
 });
@@ -320,7 +405,8 @@ grid.addEventListener('mousedown', e => {
     if(playerLock){
         return;
     }
-    if (e.target.tagName !== 'TD') return;
+
+    if (!e.target.classList.contains('cell')) return;
     startCell = e.target;
     startX = e.clientX;
     startY = e.clientY;
@@ -332,32 +418,29 @@ grid.addEventListener('mousemove', e => {
     if(playerLock){
         return;
     }
-    if (!dragging || !startCell) return;
+
+    if (!dragging) return;
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
-    const rowIndex = [...startCell.parentNode.parentNode.children].indexOf(startCell.parentNode);
-    const colIndex = [...startCell.parentNode.children].indexOf(startCell);
+    const r = parseInt(startCell.dataset.r);
+    const c = parseInt(startCell.dataset.c);
 
     if (!direction) {
-        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-            direction = Math.abs(dx) > Math.abs(dy) ? 'row' : 'col';
-        } else {
+        if (Math.abs(dx) > 15) {
+            direction = 'row';
+        } else if (Math.abs(dy) > 15) {
+            direction = 'col';
+        }else{
             return;
         }
     }
 
-    if (direction == 'row') {
-        const shiftnum = Math.floor(dx / cellsize);
-        if (shiftnum !== 0) {
-            shiftRow(rowIndex, Math.sign(shiftnum), Math.abs(shiftnum));
-            startX += shiftnum * cellsize;
-        }
-    } else if (direction === 'col') {
-        const shiftnum = Math.floor(dy / cellsize);
-        if (shiftnum !== 0) {
-            shiftCol(colIndex, Math.sign(shiftnum), Math.abs(shiftnum));
-            startY += shiftnum * cellsize;
-        }
+    if (direction == 'row' && Math.abs(dx) >= cellsize) {
+            shiftRow(r, Math.sign(dx));
+            startX += Math.sign(dx) * cellsize;
+    } else if (direction === 'col' && Math.abs(dy) >= cellsize) {
+            shiftCol(c, Math.sign(dy));
+            startY += Math.sign(dy) * cellsize;
     }
 });
 
@@ -365,6 +448,7 @@ grid.addEventListener('mouseup', async e => {
     if(playerLock){
         return;
     }
+
     dragging = false;
     startCell = null;
     direction = null;
