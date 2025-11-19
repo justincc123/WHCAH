@@ -1,14 +1,26 @@
-const cells = [];
-const board = [];
-const grid = document.getElementById('grid');
-
+// ======================= CONSTANTS & VARIABLES ==========================
 const rows = 6;
 const cols = 6;
-const cellsize = 100;
-var totalScore = 0;
-var totalCombo = 0;
-let playerLock = false;
+const cellSize = 100;
 
+const gemsList = [
+    "gemA", "gemB", "gemC", "gemD", "gemE",
+    "gemF", "gemG", "gemH", "gemI", "gemJ"
+];
+
+const grid = document.getElementById("grid");
+const cells = [];   // DOM elements
+const board = [];   // string matrix
+
+let playerLock = false;
+let totalScore = 0;
+let totalCombo = 0;
+
+// NEW: Flag that tracks if THIS MOVE produced a match
+let moveMadeMatch = false;
+
+
+// ======================= UI / HELPERS ==========================
 const e = document.getElementsByClassName('close');
 const closeA = e[0];
 const closeB = e[1];
@@ -20,6 +32,14 @@ const nextA = n[0];
 const nextB = n[1];
 const nextC = n[2];
 
+function randomGem() {
+    return gemsList[Math.floor(Math.random() * gemsList.length)];
+}
+
+function delay(ms) {
+    return new Promise(res => setTimeout(res, ms));
+}
+
 function Update() {
     document.getElementById('displayScore').textContent = totalScore;
     document.getElementById('displayMult').textContent = totalCombo;
@@ -29,212 +49,178 @@ function showScorePopup(score, mult) {
     let popup = document.createElement('div');
     if (mult > 1 && score > 0) {
         popup.textContent = `Combo! ${score} × ${mult}!`;
-        console.log(`Combo! ${score} × ${mult}!`);
         popup.className = 'score-popup';
-    } else if (mult <=1 && score > 0) {
+    } else if (mult <= 1 && score > 0) {
         popup.textContent = `+ ${score}!`;
-        console.log(`+ ${score}!`);
         popup.className = 'score-popup';
     }
 
-    document.body.appendChild(popup);
+    if (score > 0) document.body.appendChild(popup);
     setTimeout(() => popup.remove(), 1000);
 }
 
-function move(r, c, newR, newC){
-    const e = cells[r][c];
-    const g = board[r][c]
-    e.dataset.r = newR;
-    e.dataset.c = newC;
-    e.style.transform = `translate(${newC * cellsize}px, ${newR * cellsize}px)`;
 
-    cells[newR][newC] = e;
-    cells[r][c] = null;
+// ======================= BASIC MOVE ==========================
+function move(fromR, fromC, toR, toC) {
+    const el = cells[fromR][fromC];
 
-    board[newR][newC] = g;
-    board[r][c] = 'empty';
+    cells[toR][toC] = el;
+    board[toR][toC] = board[fromR][fromC];
+
+    cells[fromR][fromC] = null;
+    board[fromR][fromC] = "empty";
+
+    el.dataset.r = toR;
+    el.dataset.c = toC;
+
+    el.style.transition = "transform .3s";
+    el.style.transform = `translate(${toC * cellSize}px, ${toR * cellSize}px)`;
 }
 
 
+// ======================= SHIFT ROW / COL ==========================
 function shiftRow(r, dir) {
-        if (dir > 0) {
-            const lastGem = board[r][cols - 1];
-            const lastCell = cells[r][cols - 1];
-
-            for (let j = cols - 1; j > 0; j--) {
-                cells[r][j] = cells[r][j - 1];
-                board[r][j] = board[r][j - 1];
-            }
-            cells[r][0] = lastCell;
-            board[r][0] = lastGem;
-        } else {
-            const firstGem = board[r][0];
-            const firstCell = cells[r][0];
-
-            for (let j = 0; j < cols - 1; j++){
-                board[r][j] = board[r][j + 1];
-                cells[r][j] = cells[r][j + 1];
-            }
-            cells[r][cols - 1] = firstCell;
-            board[r][cols - 1] = firstGem;
+    if (dir > 0) {
+        const lastGem = board[r][cols - 1];
+        const lastEl = cells[r][cols - 1];
+        for (let c = cols - 1; c > 0; c--) {
+            board[r][c] = board[r][c - 1];
+            cells[r][c] = cells[r][c - 1];
         }
-    for(let c = 0; c < cols; c++){
-        const e = cells[r][c];
-        e.dataset.c = c;
-        e.style.transform = `translate(${c * cellsize}px, ${r * cellsize}px)`;
+        board[r][0] = lastGem;
+        cells[r][0] = lastEl;
+    } else {
+        const firstGem = board[r][0];
+        const firstEl = cells[r][0];
+        for (let c = 0; c < cols - 1; c++) {
+            board[r][c] = board[r][c + 1];
+            cells[r][c] = cells[r][c + 1];
+        }
+        board[r][cols - 1] = firstGem;
+        cells[r][cols - 1] = firstEl;
+    }
+
+    for (let c = 0; c < cols; c++) {
+        const el = cells[r][c];
+        el.dataset.c = c;
+        el.style.transform = `translate(${c * cellSize}px, ${r * cellSize}px)`;
     }
 }
 
 function shiftCol(c, dir) {
-        if (dir > 0) {
-            const lastGem = board[rows - 1][c];
-            const lastCell = cells[rows - 1][c];
-            for (let j = rows - 1; j > 0; j--){
-                cells[j][c] = cells[j - 1][c];
-                board[j][c] = board[j - 1][c];
-            }
-            board[0][c] = lastGem;
-            cells[0][c] = lastCell;
-        } else {
-            const firstGem = board[0][c];
-            const firstCell = cells[0][c];
-            for (let j = 0; j < rows - 1; j++){
-                cells[j][c] = cells[j + 1][c];
-                board[j][c] = board[j + 1][c];
-            }
-            board[rows - 1][c] = firstGem;
-            cells[rows - 1][c] = firstCell;
+    if (dir > 0) {
+        const lastGem = board[rows - 1][c];
+        const lastEl = cells[rows - 1][c];
+        for (let r = rows - 1; r > 0; r--) {
+            board[r][c] = board[r - 1][c];
+            cells[r][c] = cells[r - 1][c];
         }
-    for(let r = 0; r < rows; r++){
-        const e = cells[r][c];
-        e.dataset.r = r;
-        e.style.transform = `translate(${c * cellsize}px, ${r * cellsize}px)`;
+        board[0][c] = lastGem;
+        cells[0][c] = lastEl;
+    } else {
+        const firstGem = board[0][c];
+        const firstEl = cells[0][c];
+        for (let r = 0; r < rows - 1; r++) {
+            board[r][c] = board[r + 1][c];
+            cells[r][c] = cells[r + 1][c];
+        }
+        board[rows - 1][c] = firstGem;
+        cells[rows - 1][c] = firstEl;
+    }
+
+    for (let r = 0; r < rows; r++) {
+        const el = cells[r][c];
+        el.dataset.r = r;
+        el.style.transform = `translate(${c * cellSize}px, ${r * cellSize}px)`;
     }
 }
 
+
+// ======================= MATCH SYSTEM ==========================
 async function matchCheck() {
-    if(playerLock){
-        return;
-    }
+    if (playerLock) return;
     playerLock = true;
-    let matched;
-    let combo = totalCombo;
-    let score = 0;
-    do {
-        matched = false;
-        const toClear = [];
-        const checked = Array.from({
-            length: rows
-        },
-            () => Array(cols).fill(false));
 
-        function flood(r, c, gemType, group) {
-            if (r < 0 || r >= rows || c < 0 || c >= cols) {
-                return;
-            }
-            if (checked[r][c]) {
-                return;
-            }
-            if (board[r][c] != gemType) {
-                return;
-            }
+    let totalMoveScore = 0;
 
-            checked[r][c] = true;
+    while (true) {
+        const matched = [];
+        const visited = Array.from({ length: rows }, () =>
+            Array(cols).fill(false)
+        );
+
+        function flood(r, c, gem, group) {
+            if (r < 0 || r >= rows || c < 0 || c >= cols) return;
+            if (visited[r][c]) return;
+            if (board[r][c] !== gem) return;
+
+            visited[r][c] = true;
             group.push([r, c]);
 
-            flood(r + 1, c, gemType, group);
-            flood(r - 1, c, gemType, group);
-            flood(r, c + 1, gemType, group);
-            flood(r, c - 1, gemType, group);
+            flood(r + 1, c, gem, group);
+            flood(r - 1, c, gem, group);
+            flood(r, c + 1, gem, group);
+            flood(r, c - 1, gem, group);
         }
 
-        let moveScore = 0;
-
-        // Check for all matches
+        // find groups
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
-                if (checked[r][c]) {
-                    continue;
-                }
-                const gemType = board[r][c];
-                if (gemType === 'empty') {
-                    continue;
-                }
+                if (visited[r][c]) continue;
+                if (board[r][c] === "empty") continue;
 
                 const group = [];
-                flood(r, c, gemType, group);
+                flood(r, c, board[r][c], group);
 
-                if (group.length >= 3) {
-                    //score increases based on number of matched gems
-                    matched = true;
-                    group.forEach(([gr, gc]) =>
-                        toClear.push([gr, gc]));
-
-                    const baseScore = group.length * 500;
-                    const countBonus = group.length >= 4 ? (group.length - 2) * 5 : 0;
-                    moveScore += baseScore + countBonus;
-                }
+                if (group.length >= 3) matched.push(...group);
             }
         }
-        // Clear matched cells (if any)
-        if (matched) {
-            combo++;
-            const mult = 1 + (combo - 1) * .5;
 
-            toClear.forEach(([r, c]) => {
-                cells[r][c].style.opacity = '.3';
-            });
+        if (matched.length === 0) break;
 
-            await new Promise(resolve =>
-                setTimeout(resolve, 400)
-            );
+        // Mark that THIS MOVE has matches
+        moveMadeMatch = true;
 
-            toClear.forEach(([r, c]) => {
-                board[r][c] = 'empty';
-                const e = cells[r][c];
-                e.className = "cell empty";
-                e.style.opacity = '0';
-            });
+        const comboMult = 1 + (1 - 1) * 0.5; // fixed: no cascade combo
+        totalMoveScore += Math.floor(matched.length * 500 * 1);
 
-            await stabilize();
+        // Fade gems
+        matched.forEach(([r, c]) => {
+            const el = cells[r][c];
+            if (el) el.style.opacity = ".3";
+        });
+        await delay(300);
 
-            var finalpoints = Math.floor(moveScore * mult);
-            totalScore += finalpoints;
-            score = moveScore;
+        // Remove gems
+        matched.forEach(([r, c]) => {
+            board[r][c] = "empty";
+            if (cells[r][c]) cells[r][c].remove();
+            cells[r][c] = null;
+        });
 
-            console.log(`${combo}: +${finalpoints} points`);
-            console.log(`Total: ${totalScore}`);
-
-             // Apply gravity after clearing
-            await new Promise(resolve =>
-                setTimeout(resolve, 400)
-            );
-        }
-    } while (matched);
-
-    if(combo === totalCombo){
-        totalCombo = 0;
-    }else{
-        totalCombo = combo > 1 ? combo : 0;
+        await stabilize();
     }
-    
-    if (combo > 1) {
-        console.log(`Combo! ×${totalCombo}`);
-    }
-    showScorePopup(score, totalCombo);
+
+    totalScore += totalMoveScore;
     Update();
+    showScorePopup(totalMoveScore, totalCombo);
+
     playerLock = false;
 }
 
-// Gravity function
-function Grav() {
+
+// ======================= GRAVITY + REFILL ==========================
+function gravity() {
     let moved = false;
+
     for (let c = 0; c < cols; c++) {
         for (let r = rows - 1; r >= 0; r--) {
-            if (board[r][c] === 'empty') {
-                // find the closest non-empty cell above
+
+            if (board[r][c] === "empty") {
+
                 let k = r - 1;
-                while (k >= 0 && board[k][c] === 'empty') k--;
+                while (k >= 0 && board[k][c] === "empty") k--;
+
                 if (k >= 0) {
                     move(k, c, r, c);
                     moved = true;
@@ -245,168 +231,109 @@ function Grav() {
     return moved;
 }
 
-function fillTop() {
-    const gems = ['gemA', 'gemB', 'gemC', 'gemD', 'gemE', 'gemF', 'gemG', 'gemH', 'gemI', 'gemJ'];
+function refill() {
+    let filled = false;
+
     for (let c = 0; c < cols; c++) {
+
         for (let r = 0; r < rows; r++) {
-            if (board[r][c] === 'empty' && (r === 0 || board[r-1][c] !== 'empty')) {
-                const gem = gems[Math.floor(Math.random() * gems.length)];
-                board[r][c] = gem;
-                const e = cells[r][c];
-                e.className = "cell " + gem;
-                e.style.opacity = '0';
-                requestAnimationFrame(() => {
-                    e.style.transition = 'opacity 0.3s';
-                    e.style.opacity = '1';
-                });
-                filled = true;
-            }
+
+            if (board[r][c] !== "empty") break;
+
+            const gem = randomGem();
+            board[r][c] = gem;
+
+            const el = document.createElement("div");
+            el.className = "cell " + gem;
+            el.dataset.r = r;
+            el.dataset.c = c;
+
+            el.style.opacity = "0";
+            el.style.transform = `translate(${c * cellSize}px, ${-cellSize}px)`;
+
+            grid.appendChild(el);
+            cells[r][c] = el;
+
+            requestAnimationFrame(() => {
+                el.style.transition = "transform .3s, opacity .3s";
+                el.style.transform =
+                    `translate(${c * cellSize}px, ${r * cellSize}px)`;
+                el.style.opacity = "1";
+            });
+
+            filled = true;
         }
     }
+
     return filled;
 }
 
-async function stablize(){
-    let moved;
-    do{
-        moved = Grav();
-        fillTop();
-        await new Promise(resolve => setTimeout(resolve, 300));
-    } while (moved);
-}
-
-RulesA.showModal();
-
-nextA.addEventListener("click", function () {
-    RulesA.close();
-    RulesB.showModal();
-});
-nextB.addEventListener("click", function () {
-    RulesB.close();
-    RulesC.showModal();
-});
-nextC.addEventListener("click", function () {
-    RulesC.close();
-    RulesD.showModal();
-});
-
-closeA.addEventListener("click", function () {
-    RulesA.close();
-    makeGrid();
-    // Start the game timer in these spots
-});
-closeB.addEventListener("click", function () {
-    RulesB.close();
-    makeGrid();
-    // Start the game timer in these spots
-});
-closeC.addEventListener("click", function () {
-    RulesC.close();
-    makeGrid();
-    // Start the game timer in these spots
-});
-closeD.addEventListener("click", function () {
-    RulesD.close();
-    makeGrid();
-    // Start the game timer in these spots
-});
-
-
-
-function makeGrid(){
-for (let r = 0; r < rows; r++) {
-    cells[r] = [];
-    board[r] = [];
-
-    for (let c = 0; c < cols; c++) {
-        const cellC = document.createElement("div");
-        let gem = "gemA";
-        // Randomly fill some cells at start
-        switch (Math.ceil(Math.random() * 10)) {
-            case 1:
-                // A";
-                gem = "gemA";
-                break;
-            case 2:
-                // B";
-                gem = "gemB";
-                break;
-            case 3:
-                // C";
-                gem = "gemC";
-                break;
-            case 4:
-                // D";
-                gem = "gemD";
-                break;
-            case 5:
-                // E";
-                gem = "gemE";
-                break;
-            case 6:
-                // F";
-                gem = "gemF";
-                break;
-            case 7:
-                // G";
-                gem = "gemG";
-                break;
-            case 8:
-                // H";
-                gem = "gemH";
-                break;
-            case 9:
-                // I";
-                gem = "gemI";
-                break;
-            case 10:
-                // J";
-                gem = "gemJ";
-                break;
+async function stabilize() {
+    while (true) {
+        if (gravity()) {
+            await delay(300);
+            continue;
         }
 
-        cellC.className = 'cell ' + gem;
-        cellC.style.transform = `translate(${c * cellsize}px, ${r * cellsize}px)`;
-        cellC.dataset.r = r;
-        cellC.dataset.c = c;
+        if (refill()) {
+            await delay(300);
+            continue;
+        }
 
-        grid.appendChild(cellC);
-        cells[r][c] = cellC;
-        board[r][c] = gem;
+        break;
     }
 }
-matchCheck();
-playerLock = false;
 
+
+// ======================= RULES POPUPS ==========================
+RulesA.showModal();
+
+nextA.addEventListener("click", () => { RulesA.close(); RulesB.showModal(); });
+nextB.addEventListener("click", () => { RulesB.close(); RulesC.showModal(); });
+nextC.addEventListener("click", () => { RulesC.close(); RulesD.showModal(); });
+
+closeA.addEventListener("click", () => { RulesA.close(); makeGrid(); });
+closeB.addEventListener("click", () => { RulesB.close(); makeGrid(); });
+closeC.addEventListener("click", () => { RulesC.close(); makeGrid(); });
+closeD.addEventListener("click", () => { RulesD.close(); makeGrid(); });
+
+
+// ======================= GRID INITIALIZATION ==========================
+function makeGrid() {
+    grid.innerHTML = "";
+    for (let r = 0; r < rows; r++) {
+        cells[r] = [];
+        board[r] = [];
+        for (let c = 0; c < cols; c++) {
+
+            const gem = randomGem();
+            board[r][c] = gem;
+
+            const el = document.createElement("div");
+            el.className = "cell " + gem;
+            el.dataset.r = r;
+            el.dataset.c = c;
+            el.style.transform = `translate(${c * cellSize}px, ${r * cellSize}px)`;
+
+            grid.appendChild(el);
+            cells[r][c] = el;
+        }
+    }
+
+    matchCheck();
 }
 
 
-let startCell = null;
-let startX = 0;
-let startY = 0;
+// ======================= INPUT LISTENERS ==========================
 let dragging = false;
+let startX = 0, startY = 0;
+let startCell = null;
 let direction = null;
 
-grid.addEventListener('dblclick', async e => {
-    if(playerLock){
-        return;
-    }
+grid.addEventListener("mousedown", e => {
+    if (playerLock) return;
     if (!e.target.classList.contains("cell")) return;
-    e.preventDefault();
-    const r = parseInt(e.target.dataset.r);
-    const c = parseInt(e.target.dataset.c);
-    board[r][c] = 'empty';
-    e.target.className = 'cell empty'
-    Grav();
-    await matchCheck();
-});
 
-grid.addEventListener('mousedown', e => {
-    if(playerLock){
-        return;
-    }
-
-    if (!e.target.classList.contains('cell')) return;
     startCell = e.target;
     startX = e.clientX;
     startY = e.clientY;
@@ -414,44 +341,63 @@ grid.addEventListener('mousedown', e => {
     direction = null;
 });
 
-grid.addEventListener('mousemove', e => {
-    if(playerLock){
-        return;
-    }
+grid.addEventListener("mousemove", e => {
+    if (!dragging || playerLock) return;
 
-    if (!dragging) return;
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
-    const r = parseInt(startCell.dataset.r);
-    const c = parseInt(startCell.dataset.c);
+
+    const r = +startCell.dataset.r;
+    const c = +startCell.dataset.c;
 
     if (!direction) {
-        if (Math.abs(dx) > 15) {
-            direction = 'row';
-        } else if (Math.abs(dy) > 15) {
-            direction = 'col';
-        }else{
-            return;
-        }
+        if (Math.abs(dx) > 15) direction = "row";
+        else if (Math.abs(dy) > 15) direction = "col";
+        else return;
     }
 
-    if (direction == 'row' && Math.abs(dx) >= cellsize) {
-            shiftRow(r, Math.sign(dx));
-            startX += Math.sign(dx) * cellsize;
-    } else if (direction === 'col' && Math.abs(dy) >= cellsize) {
-            shiftCol(c, Math.sign(dy));
-            startY += Math.sign(dy) * cellsize;
+    if (direction === "row" && Math.abs(dx) >= cellSize) {
+        shiftRow(r, Math.sign(dx));
+        startX += Math.sign(dx) * cellSize;
+    }
+
+    if (direction === "col" && Math.abs(dy) >= cellSize) {
+        shiftCol(c, Math.sign(dy));
+        startY += Math.sign(dy) * cellSize;
     }
 });
 
-grid.addEventListener('mouseup', async e => {
-    if(playerLock){
-        return;
-    }
+grid.addEventListener("mouseup", async e => {
+    if (!dragging || playerLock) return;
 
     dragging = false;
-    startCell = null;
-    direction = null;
-    Grav();
+
+    moveMadeMatch = false;
     await matchCheck();
+
+    if (moveMadeMatch) totalCombo++;
+    else totalCombo = 0;
+
+    Update();
+});
+
+grid.addEventListener("dblclick", async e => {
+    if (playerLock) return;
+    if (!e.target.classList.contains("cell")) return;
+
+    const r = +e.target.dataset.r;
+    const c = +e.target.dataset.c;
+
+    board[r][c] = "empty";
+    cells[r][c].remove();
+    cells[r][c] = null;
+
+    await stabilize();
+
+    moveMadeMatch = false;
+    await matchCheck();
+    if (moveMadeMatch) totalCombo++;
+    else totalCombo = 0;
+
+    Update();
 });
