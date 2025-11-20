@@ -9,14 +9,21 @@ const gemsList = [
 ];
 
 const grid = document.getElementById("grid");
-const cells = [];   // DOM elements
-const board = [];   // string matrix
+const cells = [];
+const board = [];
+
+const timer = document.getElementById('time');
+let running = false;
+let loop = null;
+let lFrame = null;
+let scoreTime = null;
 
 let playerLock = false;
 let totalScore = 0;
 let totalCombo = 0;
+var time = 60;
 
-// NEW: Flag that tracks if THIS MOVE produced a match
+
 let moveMadeMatch = false;
 
 
@@ -57,6 +64,49 @@ function showScorePopup(score, mult) {
 
     if (score > 0) document.body.appendChild(popup);
     setTimeout(() => popup.remove(), 1000);
+}
+
+function timerStart() {
+    if (running) return;
+    running = true;
+    lFrame = performance.now();
+    loop = requestAnimationFrame(tick);
+}
+
+function tick(x) {
+    if (!running) {
+        return;
+    }
+
+    const downTime = (x - lFrame) / 1000;
+    lFrame = x;
+
+    time -= downTime;
+    if (time < 0) {
+        time = 0;
+    }
+
+    var minutes = Math.floor(time / 60);
+    var seconds = Math.floor(time % 60).toString().padStart(2, 0);
+
+    timer.textContent = `${minutes}:${seconds}`;
+
+    if (time > 0) {
+        loop = requestAnimationFrame(tick);
+    } else {
+        running = false;
+        // =========================Place Game Over Dialog here================
+    }
+}
+
+function addTime(a) {
+    time += a;
+
+    let timePop = document.createElement('div');
+    timePop.className = "time-popup";
+    timePop.textContent = `+${a.toFixed(2)}s`;
+    document.body.appendChild(pop);
+    setTimeout(() => pop.remove(), 800);
 }
 
 
@@ -184,6 +234,8 @@ async function matchCheck() {
         const comboMult = 1 + (1 - 1) * 0.5; // fixed: no cascade combo
         totalMoveScore += Math.floor(matched.length * 500 * 1);
 
+        scoreTime = (totalMoveScore/3000) + totalCombo;
+
         // Fade gems
         matched.forEach(([r, c]) => {
             const el = cells[r][c];
@@ -292,10 +344,10 @@ nextA.addEventListener("click", () => { RulesA.close(); RulesB.showModal(); });
 nextB.addEventListener("click", () => { RulesB.close(); RulesC.showModal(); });
 nextC.addEventListener("click", () => { RulesC.close(); RulesD.showModal(); });
 
-closeA.addEventListener("click", () => { RulesA.close(); makeGrid(); });
-closeB.addEventListener("click", () => { RulesB.close(); makeGrid(); });
-closeC.addEventListener("click", () => { RulesC.close(); makeGrid(); });
-closeD.addEventListener("click", () => { RulesD.close(); makeGrid(); });
+closeA.addEventListener("click", () => { RulesA.close(); makeGrid(); timerStart(); });
+closeB.addEventListener("click", () => { RulesB.close(); makeGrid(); timerStart(); });
+closeC.addEventListener("click", () => { RulesC.close(); makeGrid(); timerStart(); });
+closeD.addEventListener("click", () => { RulesD.close(); makeGrid(); timerStart(); });
 
 
 // ======================= GRID INITIALIZATION ==========================
@@ -372,13 +424,16 @@ grid.addEventListener("mouseup", async e => {
 
     dragging = false;
 
+    Update();
+
     moveMadeMatch = false;
     await matchCheck();
 
-    if (moveMadeMatch) totalCombo++;
+    if (moveMadeMatch) {
+        totalCombo++;
+        addTime(scoreTime);
+    }
     else totalCombo = 0;
-
-    Update();
 });
 
 grid.addEventListener("dblclick", async e => {
@@ -394,10 +449,9 @@ grid.addEventListener("dblclick", async e => {
 
     await stabilize();
 
+    Update();
     moveMadeMatch = false;
     await matchCheck();
     if (moveMadeMatch) totalCombo++;
     else totalCombo = 0;
-
-    Update();
 });

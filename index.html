@@ -10,33 +10,39 @@
 </head>
 
 <body>
-    <div id="ui">
-        <div>Score: <span id="displayScore">0</span></div>
-        <div>Combo: <span id="displayMult">0</span></div>
-    </div>
-    <div id="playSpace">
-        <div id="grid" class="space">
+    <div id="game">
+        <div id="playSpace">
+            <div id="grid" class="space">
+            </div>
+            <dialog id="RulesA" class="rulesBox">
+                <h2>How to Play:</h2>
+                <p>Click and drag with your mouse or finger to move a column or row.</p>
+                <button class="next">Next</button><button class="close">Close</button>
+            </dialog>
+            <dialog id="RulesB" class="rulesBox">
+                <h2>How to Play:</h2>
+                <p>Match 3 or more gems to score!</p>
+                <button class="next">Next</button><button class="close">Close</button>
+            </dialog>
+            <dialog id="RulesC" class="rulesBox">
+                <h2>How to Play:</h2>
+                <p>No moves? Double click a gem to break it! (You will not earn points for breaking a gem)</p>
+                <button class="next">Next</button><button class="close">Close</button>
+            </dialog>
+            <dialog id="RulesD" class="rulesBox">
+                <h2>How to Play:</h2>
+                <p>Watch the clock! Score points to add more time! <br>
+                    You have 1 minute!</p>
+                <button class="close">Play</button>
+            </dialog>
         </div>
-        <dialog id="RulesA" class="rulesBox">
-            <h2>How to Play:</h2>
-            <p>Click and drag with your mouse or finger to move a column or row.</p>
-            <button class="next">Next</button><button class="close">Close</button>
-        </dialog>
-        <dialog id="RulesB" class="rulesBox">
-            <h2>How to Play:</h2>
-            <p>Match 3 or more gems to score!</p>
-            <button class="next">Next</button><button class="close">Close</button>
-        </dialog>
-        <dialog id="RulesC" class="rulesBox">
-            <h2>How to Play:</h2>
-            <p>No moves? Double click a gem to break it! (You will not earn points for breaking a gem)</p>
-            <button class="next">Next</button><button class="close">Close</button>
-        </dialog>
-        <dialog id="RulesD" class="rulesBox">
-            <h2>How to Play:</h2>
-            <p>Watch the clock! Score points to add more time!</p>
-            <button class="close">Play</button>
-        </dialog>
+        <div id="ui">
+            <div id="score">Score: <span id="displayScore">0</span></div>
+            <div id="combo">Combo: <span id="displayMult">0</span></div>
+        </div>
+        <div id="timer-ui">
+            <div id="timer">Time Left: <span id="time">0:00</span></div>
+        </div>
     </div>
     <script src="js/test.js"></script>
 </body>

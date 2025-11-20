@@ -1,14 +1,22 @@
 body {
     display: flex;
-    justify-content: center;
     align-items: center;
-    margin: 0;
+    justify-content: center;
     width: 100vw;
     height: 100vh;
+    position: relative;
+}
+
+#game{
+    position: relative;
+    display: inline-block;
+    user-select: none;
+    -moz-user-select: none;
 }
 
 #playSpace {
     width: min(80vh, 90vw);
+    height: min(80vh, 90vw);
     aspect-ratio: 1/1;
     background-color: slateblue;
     border-radius: 10px;
@@ -17,11 +25,27 @@ body {
     align-items: center;
 }
 
-#playSpace{
-    user-select: none;
-    -moz-user-select: none;
-}
 
+#ui, #timer-ui{
+    width: min(25vh, 15vw);
+    height: min(25vh, 15vw);;
+    position: absolute;
+    background-color: blueviolet;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+#ui{
+    top: 0;
+    left: 100%;
+}
+#timer-ui{
+    bottom: 0;
+    left: 100%;
+}
 
 #grid {
     position: relative;
@@ -48,6 +72,18 @@ body {
     color: black;
     font-weight: bold;
     text-shadow: 0 0 1px , 0 0 2px yellow;
+    animation: fadeUp 1s ease-out forwards;
+}
+
+.time-popup {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 2em;
+    color: black;
+    font-weight: bold;
+    text-shadow: 0 0 1px , 0 0 2px lime;
     animation: fadeUp 1s ease-out forwards;
 }
 
@@ -114,5 +150,18 @@ body {
     to {
         opacity: 0;
         transform: translate(-50%, -60px);
+    }
+}
+
+@media (max-width: 1200px) {
+    #ui, #timer-ui {
+        left: 90%;        /* move UI closer to play area */
+        margin-left: 0;   /* cancel extra margin if you added one */
+    }
+}
+
+@media (max-width: 900px) {
+    #ui, #timer-ui {
+        left: 85%;        /* even closer for smaller windows */
     }
 }
