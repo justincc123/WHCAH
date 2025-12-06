@@ -5,6 +5,71 @@ body {
     width: 100vw;
     height: 100vh;
     position: relative;
+    color: aqua;
+    z-index: 100;
+    
+    background: linear-gradient(270deg, purple, orange);
+    background-size: 400% 400%;
+    
+    animation: gradShift 20s ease infinite;
+}
+
+dialog {
+    opacity: 90%;
+    width: min(80vh, 90vw);
+    height: min(80vh, 90vw);
+}
+
+#leaderboards {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    border-radius: 15px;
+}
+
+#alt-leaderboards {
+    border-radius: 15px;
+    background: #0a84ff;
+}
+
+#tabs {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 7px;
+}
+
+.tab-btn {
+    background: #222;
+    border: 1px solid #555;
+    padding: 4px 8px;
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.tab-btn.active {
+    background: #0a84ff;
+}
+
+.lb-tab {
+    display: none;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 6px;
+    border-radius: 6px;
+    max-height: 300px;
+    overflow-y: auto;
+    font-size: 18px;
+    color: rgb(38, 40, 155);
+}
+
+.lb-tab.active {
+    display: block;
+}
+
+.buttons {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
 }
 
 #game {
@@ -23,6 +88,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
+    box-shadow: 0 0 50px 30px rgba(106,90,205,0.5);
 }
 
 
@@ -39,6 +105,7 @@ body {
     align-items: center;
     justify-content: center;
     text-align: center;
+    box-shadow: 0 0 50px 30px rgba(106,90,205,0.5);
 }
 
 #ui {
@@ -193,12 +260,12 @@ body {
     background-image: url("../resources/GemJ.png");
 }
 
-.cell.locked{
+.cell.locked {
     background: #333;
     border: 2px solid red;
 }
 
-.lock-toast{
+.lock-toast {
     position: fixed;
     top: 5%;
     left: 50%;
@@ -235,6 +302,12 @@ body {
     }
 }
 
+@keyframes gradShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
 @media (max-width: 1200px) {
 
     #ui,
@@ -254,5 +327,9 @@ body {
     #pause-ui {
         left: 85%;
         opacity: 90%;
+    }
+
+    #leaderboards {
+        visibility: hidden;
     }
 }

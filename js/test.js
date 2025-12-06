@@ -1,3 +1,134 @@
+// ==========================FIREBASE=============================================
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+import { addDoc, collection, getDocs, getFirestore, limit, onSnapshot, orderBy, query } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+    apiKey: "AIzaSyAeukRpuNoSSIgiElFS2eofuJ9c3MuaofE",
+    authDomain: "final-projec-b1bf3.firebaseapp.com",
+    projectId: "final-projec-b1bf3",
+    storageBucket: "final-projec-b1bf3.firebasestorage.app",
+    messagingSenderId: "978057527794",
+    appId: "1:978057527794:web:dba5509a787cca4fb4eb6b",
+    measurementId: "G-CB1MBH76ZJ"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const dailyL = collection(db, "Daily_Leaderboards");
+const weeklyL = collection(db, "Weekly_Leaderboards");
+const allTimeL = collection(db, "All-Time_Leaderboards");
+
+
+async function init() {
+    const snap = await getDocs(dailyL);
+    snap.forEach(doc => console.log(doc.data()));
+
+    // Optional: Render daily leaderboard immediately
+    renderLeaderboardSnapshot(snap, "daily", currentPlayerName, currentPlayerScore);
+}
+
+init();
+
+
+function renderLeaderboardSnapshot(snapshot, containerId, playerName = null, playerScore = null, limitCount = 10) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.warn(`Container with id "${containerId}" not found`);
+        return;
+    }
+
+    const scores = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    if (playerName && playerScore != null) {
+        scores.push({ name: playerName, score: playerScore, timestamp: new Date() });
+    }
+
+    scores.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.timestamp?.toDate?.() - a.timestamp?.toDate?.() || 0;
+    });
+
+    let html = "";
+    scores.slice(0, limitCount).forEach((p, i) => {
+        const highlight = (p.name === playerName && p.score === playerScore)
+            ? " style='background: yellow; font-weight: bold;'"
+            : "";
+        html += `<div${highlight}>${i + 1}. ${p.name || "Player"} - ${p.score}</div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+
+
+function setupLeaderboardTabRealtime(collectionRef, containerId, limitCount = 10) {
+    const q = query(collectionRef, orderBy("score", "desc"), orderBy("timestamp", "desc"), limit(50));
+
+    return onSnapshot(q, (snap) => {
+        renderLeaderboardSnapshot(snap, containerId, currentPlayerName || "Player", currentPlayerScore || totalScore, limitCount);
+    });
+}
+
+function showGameOverLeaderboards() {
+    Object.entries(gameOverTabMap).forEach(([tabId, collectionRef]) => {
+        const q = query(collectionRef, orderBy("score", "desc"), orderBy("timestamp", "desc"), limit(50));
+        onSnapshot(q, (snap) => {
+            renderLeaderboardSnapshot(snap, tabId, currentPlayerName, currentPlayerScore);
+        });
+    });
+}
+
+
+// Initialize
+// Main leaderboards
+setupLeaderboardTabRealtime(dailyL, "daily");
+setupLeaderboardTabRealtime(weeklyL, "weekly");
+setupLeaderboardTabRealtime(allTimeL, "all");
+
+
+
+const collectionMap = { daily: dailyL, weekly: weeklyL, all: allTimeL };
+
+function setupLeaderboardRealtime(collectionRef, containerId, limitCount = 10) {
+    const q = query(collectionRef, orderBy("score", "desc"), orderBy("timestamp", "desc"), limit(50));
+    return onSnapshot(q, snap => {
+        renderLeaderboardSnapshot(snap, containerId, currentPlayerName || "Player", currentPlayerScore || totalScore, limitCount);
+    });
+}
+
+// Main leaderboards
+Object.entries(collectionMap).forEach(([key, col]) => setupLeaderboardRealtime(col, key));
+
+// Game Over leaderboards
+const gameOverTabMap = { "alt-daily": dailyL, "alt-weekly": weeklyL, "alt-all": allTimeL };
+
+
+
+const backendbtn = document.querySelectorAll(".tab-btn")[2];
+
+async function saveHighScore(name, score, callback) {
+    try {
+        // Daily leaderboard
+        await addDoc(dailyL, { name, score, timestamp: new Date() });
+        // Weekly leaderboard
+        await addDoc(weeklyL, { name, score, timestamp: new Date() });
+        // All-time leaderboard
+        await addDoc(allTimeL, { name, score, timestamp: new Date() });
+
+        console.log("Score saved successfully!");
+        if (callback) callback();
+    } catch (err) {
+        console.error("Error saving score:", err);
+    }
+}
+
 // ======================= CONSTANTS & VARIABLES ==========================
 const rows = 6;
 const cols = 6;
@@ -11,7 +142,7 @@ const gemsList = [
 const tipList = [
     "Be careful, breaking a gem costs 1s, and breaks your combo too...",
     "In a pinch? Double clicking removes locks from gems!",
-    "",
+    "A higher combo grants more time!",
     "",
     "",
     "",
@@ -53,6 +184,9 @@ const nextC = n[2];
 const pause = document.getElementById('pause');
 const rules = document.getElementById('rules');
 
+const gameOverTabs = document.querySelectorAll("#gameOverTabs .gameOver-tab-btn");
+const gameOverTabContents = document.querySelectorAll("#gameOver .lb-tab");
+
 
 function delay(ms) {
     return new Promise(res => setTimeout(res, ms));
@@ -81,7 +215,7 @@ function Update() {
 function showScorePopup(score, mult) {
     let popup = document.createElement('div');
     if (mult > 1 && score > 0) {
-        popup.textContent = `Combo! ${score} × ${mult}!`;
+        popup.textContent = `Combo ×${1 + (mult * 0.5)}! +${score}`;
         popup.className = 'score-popup';
     } else if (mult <= 1 && score > 0) {
         popup.textContent = `+ ${score} pts!`;
@@ -93,6 +227,21 @@ function showScorePopup(score, mult) {
 }
 
 // ==========================BACKEND FUNCTIONS=================================================================
+
+
+gameOverTabs.forEach(button => {
+    button.addEventListener("click", () => {
+        // Remove active from all buttons & tabs
+        gameOverTabs.forEach(btn => btn.classList.remove("active"));
+        gameOverTabContents.forEach(tab => tab.classList.remove("active"));
+
+        // Activate clicked button and its corresponding tab
+        button.classList.add("active");
+        const targetId = button.dataset.target;
+        document.getElementById(targetId).classList.add("active");
+    });
+});
+
 function randomGem() {
     return gemsList[Math.floor(Math.random() * gemsList.length)];
 }
@@ -114,8 +263,8 @@ function showLockToast() {
     setTimeout(() => tX.remove(), 5000);
 }
 
-function unlock(r, c){
-    if(!locked(board[r][c])) return;
+function unlock(r, c) {
+    if (!locked(board[r][c])) return;
     const newGem = randomGem();
     board[r][c] = newGem;
 
@@ -124,8 +273,8 @@ function unlock(r, c){
     el.className = "cell " + newGem;
 }
 
-function chooseTip(){
-    
+function chooseTip() {
+
 }
 
 function timerStart() {
@@ -135,31 +284,61 @@ function timerStart() {
     loop = requestAnimationFrame(tick);
 }
 
-function tick(x) {
-    if (!running) {
-        return;
+function maybeLockRandomGem() {
+    // === RANDOM GEM LOCKING EVENT ===
+    let lockChance = Math.min(.25, totalScore / 200000);
+    if (Math.random() < lockChance) {
+
+        // Pick a random non-locked, non-empty gem
+        const candidates = [];
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                if (board[r][c] !== "empty" && !locked(board[r][c])) {
+                    candidates.push([r, c]);
+                }
+            }
+        }
+
+        if (candidates.length > 0) {
+            const [lr, lc] = candidates[Math.floor(Math.random() * candidates.length)];
+
+            board[lr][lc] = "locked";
+
+            const el = cells[lr][lc];
+            if (el) {
+                el.classList.add("locked");
+            } else {
+                console.warn("Tried to lock missing cell:", lr, lc);
+            }
+
+            showLockToast();
+        }
     }
+}
+
+function tick(x) {
+    if (!running) return;
 
     const downTime = (x - lFrame) / 1000;
     lFrame = x;
 
     time -= downTime;
-    if (time < 0) {
-        time = 0;
-    }
+    if (time < 0) time = 0;
 
-    var minutes = Math.floor(time / 60);
-    var seconds = Math.floor(time % 60).toString().padStart(2, 0);
-
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60).toString().padStart(2, "0");
     timer.textContent = `${minutes}:${seconds}`;
 
     if (time > 0) {
         loop = requestAnimationFrame(tick);
     } else {
         running = false;
+        currentPlayerScore = totalScore;  // capture final score before showing Game Over
         gameOver.showModal();
+        showGameOverLeaderboards();
     }
 }
+
 
 function addTime(a) {
     time += a;
@@ -178,6 +357,42 @@ function removeTime() {
     document.getElementById("timer-ui").appendChild(timePop);
     setTimeout(() => timePop.remove(), 800);
 }
+
+const submitScoreBtn = document.getElementById("submitScoreBtn");
+const playerNameInput = document.getElementById("playerName");
+let scoreSaved = false;
+
+let currentPlayerScore = null;
+let currentPlayerName = null;
+
+submitScoreBtn.addEventListener("click", async () => {
+    if (scoreSaved) return;
+
+    currentPlayerName = playerNameInput.value.trim() || "Player";
+
+    try {
+        await saveHighScore(currentPlayerName, currentPlayerScore);
+        scoreSaved = true;
+        submitScoreBtn.textContent = "Saved!";
+        submitScoreBtn.disabled = true;
+
+        // Rerender leaderboards with updated name
+        Object.entries(gameOverTabMap).forEach(([tabId, collectionRef]) => {
+            const q = query(collectionRef, orderBy("score", "desc"), orderBy("timestamp", "desc"), limit(50));
+            onSnapshot(q, (snap) => {
+                renderLeaderboardSnapshot(snap, tabId, currentPlayerName, currentPlayerScore);
+            });
+        });
+
+
+    } catch (err) {
+        console.error("Error saving score:", err);
+        submitScoreBtn.textContent = "Error, try again";
+    }
+});
+
+
+
 
 
 // ======================= BASIC MOVE ==========================
@@ -326,10 +541,10 @@ async function matchCheck() {
             }
         }
 
-        const comboMult = 1 + (totalCombo * 0.5); // fixed: no cascade combo
-        totalMoveScore += Math.floor(matched.length * 500 * 1);
+        const comboMult = 1 + (totalCombo * 0.5); // no cascade combo
+        totalMoveScore += Math.floor(matched.length * 500 * comboMult);
 
-        scoreTime = (totalMoveScore / 3000) + totalCombo/2;
+        scoreTime = (totalMoveScore / 3000) + totalCombo / 2;
 
         // Fade gems
         matched.forEach(([r, c]) => {
@@ -347,6 +562,7 @@ async function matchCheck() {
 
         await stabilize();
     }
+
 
     totalScore += totalMoveScore;
     Update();
@@ -387,29 +603,14 @@ function refill() {
 
             if (board[r][c] !== "empty") break;
 
-            let lockSpawn = false;
-            let lockChance = Math.min(.25, totalScore / 200000);
-            if (Math.random() < lockChance) {
-                lockSpawn = true;
-            }
+            let gem = randomGem();
 
-            let gem;
-            if (lockSpawn) {
-                gem = "locked";
-                showLockToast();
-            } else {
-                gem = randomGem();
-            }
             board[r][c] = gem;
 
             const el = document.createElement("div");
             el.className = "cell " + gem;
             el.dataset.r = r;
             el.dataset.c = c;
-
-            if (gem === "locked") {
-                el.classList.add("locked");
-            }
 
             el.style.opacity = "0";
             el.style.transform = `translate(${c * cellSize}px, ${-cellSize}px)`;
@@ -441,6 +642,10 @@ async function stabilize() {
             continue;
         }
 
+        if (!gravity() && !refill()) {
+            maybeLockRandomGem();
+            break;
+        }
         break;
     }
 }
@@ -492,6 +697,15 @@ let dragging = false;
 let startX = 0, startY = 0;
 let startCell = null;
 let direction = null;
+
+backendbtn.addEventListener("dblclick", () => {
+    time = 0;
+    if (running) {
+        running = false;
+        currentPlayerScore = totalScore;
+        gameOver.showModal();
+    }
+});
 
 grid.addEventListener("mousedown", e => {
     if (playerLock) return;
@@ -560,14 +774,13 @@ grid.addEventListener("dblclick", async e => {
     const r = +e.target.dataset.r;
     const c = +e.target.dataset.c;
 
-    if(locked(board[r][c])){
+    if (locked(board[r][c])) {
         unlock(r, c);
-        return;
+    } else {
+        board[r][c] = "empty";
+        cells[r][c].remove();
+        cells[r][c] = null;
     }
-
-    board[r][c] = "empty";
-    cells[r][c].remove();
-    cells[r][c] = null;
 
     await stabilize();
 
@@ -575,6 +788,4 @@ grid.addEventListener("dblclick", async e => {
     moveMadeMatch = false;
     totalCombo = 0;
     await matchCheck();
-    totalCombo = 0;
-    Update();
 });
