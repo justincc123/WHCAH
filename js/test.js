@@ -29,87 +29,123 @@ const allTimeL = collection(db, "All-Time_Leaderboards");
 async function init() {
     const snap = await getDocs(dailyL);
     snap.forEach(doc => console.log(doc.data()));
-
-    // Optional: Render daily leaderboard immediately
-    renderLeaderboardSnapshot(snap, "daily", currentPlayerName, currentPlayerScore);
 }
-
 init();
 
+// =================== LEADERBOARD SYSTEM ===================
 
-function renderLeaderboardSnapshot(snapshot, containerId, playerName = null, playerScore = null, limitCount = 10) {
+// Map of main leaderboard containers
+const mainLB = {
+    daily: dailyL,
+    weekly: weeklyL,
+    all: allTimeL
+};
+
+// Game-Over leaderboard containers
+const gameOverLB = {
+    "alt-daily": dailyL,
+    "alt-weekly": weeklyL,
+    "alt-all": allTimeL
+};
+
+function renderLeaderboardSnapshot(snapshot, containerId, playerName, playerScore) {
     const container = document.getElementById(containerId);
-    if (!container) {
-        console.warn(`Container with id "${containerId}" not found`);
-        return;
-    }
+    if (!container) return;
 
     const scores = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    if (playerName && playerScore != null) {
-        scores.push({ name: playerName, score: playerScore, timestamp: new Date() });
-    }
-
+    // Sort by score descending, then timestamp descending
     scores.sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
-        return b.timestamp?.toDate?.() - a.timestamp?.toDate?.() || 0;
+        return (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0);
     });
 
     let html = "";
-    scores.slice(0, limitCount).forEach((p, i) => {
-        const highlight = (p.name === playerName && p.score === playerScore)
-            ? " style='background: yellow; font-weight: bold;'"
-            : "";
-        html += `<div${highlight}>${i + 1}. ${p.name || "Player"} - ${p.score}</div>`;
+
+    // Calculate player rank
+    let playerRank = -1;
+    scores.forEach((entry, i) => {
+        if (entry.name === playerName) {
+            playerRank = i + 1;
+        }
     });
+
+    // Render top 10 leaderboard
+    const top10 = scores.slice(0, 10);
+    top10.forEach((entry, i) => {
+    const isCurrentPlayer = playerName && entry.name === playerName && entry.score === playerScore;
+    const highlight = isCurrentPlayer ? " class='highlight-score'" : "";
+    html += `<div ${highlight}>${i + 1}. ${entry.name} — ${entry.score}</div>`;
+});
+
+
+    // If player is outside top 10, show their rank separately
+    if (playerRank !== -1 && playerRank > 10) {
+        html += `<div class="player-rank highlight-score">Your Rank: ${playerRank} — ${playerName}: ${playerScore}</div>`;
+    }
 
     container.innerHTML = html;
 }
 
 
 
-function setupLeaderboardTabRealtime(collectionRef, containerId, limitCount = 10) {
-    const q = query(collectionRef, orderBy("score", "desc"), orderBy("timestamp", "desc"), limit(50));
+function attachMainLeaderboards() {
+    Object.entries(mainLB).forEach(([containerId, colRef]) => {
+        const qMain = query(
+            colRef,
+            orderBy("score", "desc"),
+            orderBy("timestamp", "desc"),
+            limit(50)
+        );
 
-    return onSnapshot(q, (snap) => {
-        renderLeaderboardSnapshot(snap, containerId, currentPlayerName || "Player", currentPlayerScore || totalScore, limitCount);
-    });
-}
-
-function showGameOverLeaderboards() {
-    Object.entries(gameOverTabMap).forEach(([tabId, collectionRef]) => {
-        const q = query(collectionRef, orderBy("score", "desc"), orderBy("timestamp", "desc"), limit(50));
-        onSnapshot(q, (snap) => {
-            renderLeaderboardSnapshot(snap, tabId, currentPlayerName, currentPlayerScore);
+        onSnapshot(qMain, (snap) => {
+            renderLeaderboardSnapshot(
+                snap,
+                containerId,
+                currentPlayerName,
+                currentPlayerScore
+            );
         });
     });
 }
 
+// Attach live listeners to game-over leaderboard
+function attachGameOverLeaderboards() {
+    Object.entries(gameOverLB).forEach(([containerId, colRef]) => {
+        const qOver = query(
+            colRef,
+            orderBy("score", "desc"),
+            orderBy("timestamp", "desc"),
+            limit(50)
+        );
 
-// Initialize
-// Main leaderboards
-setupLeaderboardTabRealtime(dailyL, "daily");
-setupLeaderboardTabRealtime(weeklyL, "weekly");
-setupLeaderboardTabRealtime(allTimeL, "all");
-
-
-
-const collectionMap = { daily: dailyL, weekly: weeklyL, all: allTimeL };
-
-function setupLeaderboardRealtime(collectionRef, containerId, limitCount = 10) {
-    const q = query(collectionRef, orderBy("score", "desc"), orderBy("timestamp", "desc"), limit(50));
-    return onSnapshot(q, snap => {
-        renderLeaderboardSnapshot(snap, containerId, currentPlayerName || "Player", currentPlayerScore || totalScore, limitCount);
+        onSnapshot(qOver, (snap) => {
+            renderLeaderboardSnapshot(
+                snap,
+                containerId,
+                currentPlayerName,
+                currentPlayerScore
+            );
+        });
     });
 }
 
-// Main leaderboards
-Object.entries(collectionMap).forEach(([key, col]) => setupLeaderboardRealtime(col, key));
+attachMainLeaderboards();
 
-// Game Over leaderboards
-const gameOverTabMap = { "alt-daily": dailyL, "alt-weekly": weeklyL, "alt-all": allTimeL };
+document.querySelectorAll("#tabs .tab-btn")
+    .forEach(btn => {
+        btn.addEventListener("click", () => {
 
+            document.querySelectorAll("#tabs .tab-btn")
+                .forEach(b => b.classList.remove("active"));
+            document.querySelectorAll("#leaderboards .lb-tab")
+                .forEach(tab => tab.classList.remove("active"));
 
+            btn.classList.add("active");
+            const tabId = btn.dataset.target;
+            document.getElementById(tabId).classList.add("active");
+        });
+    });
 
 const backendbtn = document.querySelectorAll(".tab-btn")[2];
 
@@ -141,12 +177,9 @@ const gemsList = [
 
 const tipList = [
     "Be careful, breaking a gem costs 1s, and breaks your combo too...",
-    "In a pinch? Double clicking removes locks from gems!",
-    "A higher combo grants more time!",
-    "",
-    "",
-    "",
-    "",
+    "In a pinch? Double clicking removes locks from gems",
+    "A higher combo grants more time",
+    "Try to save bigger matches for when you have a higher combo",
 ]
 
 const grid = document.getElementById("grid");
@@ -166,6 +199,8 @@ var time = 60;
 
 let lockToast = false;
 let moveMadeMatch = false;
+const pauseTip = document.getElementById("pauseTip");
+const gameOverTip = document.getElementById("gameOverTip");
 
 
 // ======================= UI ==============================
@@ -184,9 +219,6 @@ const nextC = n[2];
 const pause = document.getElementById('pause');
 const rules = document.getElementById('rules');
 
-const gameOverTabs = document.querySelectorAll("#gameOverTabs .gameOver-tab-btn");
-const gameOverTabContents = document.querySelectorAll("#gameOver .lb-tab");
-
 
 function delay(ms) {
     return new Promise(res => setTimeout(res, ms));
@@ -195,6 +227,7 @@ function delay(ms) {
 function pauseGame() {
     pauseScreen.showModal();
     running = false;
+    chooseTip(pauseTip);
 }
 
 function RulesPauseGame() {
@@ -229,18 +262,29 @@ function showScorePopup(score, mult) {
 // ==========================BACKEND FUNCTIONS=================================================================
 
 
-gameOverTabs.forEach(button => {
-    button.addEventListener("click", () => {
-        // Remove active from all buttons & tabs
-        gameOverTabs.forEach(btn => btn.classList.remove("active"));
-        gameOverTabContents.forEach(tab => tab.classList.remove("active"));
+// ================= GAME-OVER LEADERBOARD TABS ===================
+document.querySelectorAll("#gameOverTabs .gameOver-tab-btn")
+    .forEach(button => {
+        button.addEventListener("click", () => {
 
-        // Activate clicked button and its corresponding tab
-        button.classList.add("active");
-        const targetId = button.dataset.target;
-        document.getElementById(targetId).classList.add("active");
+            // remove active from buttons
+            document.querySelectorAll("#gameOverTabs .gameOver-tab-btn")
+                .forEach(btn => btn.classList.remove("active"));
+
+            // remove active from tab contents
+            document.querySelectorAll("#gameOver .lb-tab")
+                .forEach(tab => tab.classList.remove("active"));
+
+            // activate clicked button
+            button.classList.add("active");
+
+            // show correct leaderboard
+            const targetId = button.dataset.target;
+            document.getElementById(targetId).classList.add("active");
+        });
     });
-});
+
+
 
 function randomGem() {
     return gemsList[Math.floor(Math.random() * gemsList.length)];
@@ -273,8 +317,9 @@ function unlock(r, c) {
     el.className = "cell " + newGem;
 }
 
-function chooseTip() {
-
+function chooseTip(txt) {
+    let index = Math.floor(Math.random() * 6);
+    txt.textContent = "Tip: " + tipList[index];
 }
 
 function timerStart() {
@@ -335,7 +380,8 @@ function tick(x) {
         running = false;
         currentPlayerScore = totalScore;  // capture final score before showing Game Over
         gameOver.showModal();
-        showGameOverLeaderboards();
+        chooseTip(gameOverTip);
+        attachGameOverLeaderboards();
     }
 }
 
@@ -375,15 +421,6 @@ submitScoreBtn.addEventListener("click", async () => {
         scoreSaved = true;
         submitScoreBtn.textContent = "Saved!";
         submitScoreBtn.disabled = true;
-
-        // Rerender leaderboards with updated name
-        Object.entries(gameOverTabMap).forEach(([tabId, collectionRef]) => {
-            const q = query(collectionRef, orderBy("score", "desc"), orderBy("timestamp", "desc"), limit(50));
-            onSnapshot(q, (snap) => {
-                renderLeaderboardSnapshot(snap, tabId, currentPlayerName, currentPlayerScore);
-            });
-        });
-
 
     } catch (err) {
         console.error("Error saving score:", err);
@@ -544,7 +581,7 @@ async function matchCheck() {
         const comboMult = 1 + (totalCombo * 0.5); // no cascade combo
         totalMoveScore += Math.floor(matched.length * 500 * comboMult);
 
-        scoreTime = (totalMoveScore / 3000) + totalCombo / 2;
+        scoreTime = Math.ceil((totalMoveScore / 3000) + totalCombo / 8);
 
         // Fade gems
         matched.forEach(([r, c]) => {
@@ -655,6 +692,7 @@ async function stabilize() {
 RulesA.showModal();
 makeGrid();
 
+
 nextA.addEventListener("click", () => { RulesA.close(); RulesB.showModal(); });
 nextB.addEventListener("click", () => { RulesB.close(); RulesC.showModal(); });
 nextC.addEventListener("click", () => { RulesC.close(); RulesD.showModal(); });
@@ -699,12 +737,7 @@ let startCell = null;
 let direction = null;
 
 backendbtn.addEventListener("dblclick", () => {
-    time = 0;
-    if (running) {
-        running = false;
-        currentPlayerScore = totalScore;
-        gameOver.showModal();
-    }
+    time = 1;
 });
 
 grid.addEventListener("mousedown", e => {
@@ -788,4 +821,9 @@ grid.addEventListener("dblclick", async e => {
     moveMadeMatch = false;
     totalCombo = 0;
     await matchCheck();
+});
+
+const restart = document.getElementById("restartBtn");
+restart.addEventListener("click", () => {
+    window.location.reload(true);
 });

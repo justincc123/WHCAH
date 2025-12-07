@@ -83,8 +83,8 @@
 
             <dialog id="pauseScreen" class="rulesBox">
                 <h2>Game Paused</h2>
-                <p>Watch the clock! Score points to add more time! <br>
-                    Tip: A higher combo grants more time!</p>
+                <p>Watch the clock! Score points to add more time!</p>
+                <p id="pauseTip"></p>
                 <div class="buttons"><button class="close">Resume</button></div>
             </dialog>
 
@@ -92,21 +92,22 @@
                 <h2>Game Over...</h2>
 
                 <div id="gameOverTabs">
-                    <button class="tab-btn active" data-target="alt-daily">Daily</button>
-                    <button class="tab-btn" data-target="alt-weekly">Weekly</button>
-                    <button class="tab-btn" data-target="alt-all">All-Time</button>
+                    <button class="gameOver-tab-btn active" data-target="alt-daily">Daily</button>
+                    <button class="gameOver-tab-btn" data-target="alt-weekly">Weekly</button>
+                    <button class="gameOver-tab-btn" data-target="alt-all">All-Time</button>
                 </div>
 
                 <div id="alt-daily" class="lb-tab active"></div>
                 <div id="alt-weekly" class="lb-tab"></div>
                 <div id="alt-all" class="lb-tab"></div>
                 
-                <p id="random-tip"></p>
+                <p id="gameOverTip"></p>
                 <div id="submit-scores">
                     <label for="playerName">Enter your name:</label>
                     <input type="text" id="playerName" placeholder="Player" maxlength="20">
                     <button id="submitScoreBtn">Submit Score</button>
                 </div>
+                <button id="restartBtn">Play Again</button>
             </dialog>
         </div>
         <div id="ui">

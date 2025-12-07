@@ -47,6 +47,18 @@ dialog {
     font-size: 12px;
 }
 
+.highlight-score {
+    background-color: yellow;
+    font-weight: bold;
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+
+.player-rank {
+    margin-top: 5px;
+    font-style: italic;
+}
+
 .tab-btn.active {
     background: #0a84ff;
 }
