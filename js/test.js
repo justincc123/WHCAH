@@ -8,6 +8,10 @@ import { addDoc, collection, getDocs, getFirestore, limit, onSnapshot, orderBy, 
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+window.addEventListener("load", () => {
+    document.getElementById("title-screen").style.display = "flex";
+});
+
 const firebaseConfig = {
     apiKey: "AIzaSyAeukRpuNoSSIgiElFS2eofuJ9c3MuaofE",
     authDomain: "final-projec-b1bf3.firebaseapp.com",
@@ -231,7 +235,7 @@ function pauseGame() {
 }
 
 function RulesPauseGame() {
-    RulesA.showModal();
+   
     running = false;
 }
 
@@ -689,7 +693,7 @@ async function stabilize() {
 
 
 // ======================= RULES POPUPS ==========================
-RulesA.showModal();
+
 makeGrid();
 
 
@@ -826,4 +830,11 @@ grid.addEventListener("dblclick", async e => {
 const restart = document.getElementById("restartBtn");
 restart.addEventListener("click", () => {
     window.location.reload(true);
+});
+document.getElementById("start-btn").addEventListener("click", () => {
+    document.getElementById("title-screen").style.display = "none";
+});
+document.getElementById("start-btn").addEventListener("click", () => {
+    document.getElementById("title-screen").style.display = "none";
+    document.getElementById("RulesA").showModal(); // first instructions
 });
